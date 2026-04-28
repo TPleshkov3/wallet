@@ -1,0 +1,73 @@
+:root {
+  --bg: #f5f6fb;
+  --card: #ffffff;
+  --text: #25283c;
+  --muted: #727894;
+  --line: #dce0ee;
+  --primary: #5a67d8;
+  --ok: #22824c;
+  --err: #c33f3f;
+}
+body[data-theme="dark"] {
+  --bg: #151823;
+  --card: #1f2433;
+  --text: #eef1ff;
+  --muted: #a6afcf;
+  --line: #323a53;
+  --primary: #7f8bff;
+  --ok: #58c67f;
+  --err: #f17b7b;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: Inter, Arial, sans-serif; }
+.app { max-width: 1040px; margin: 0 auto; padding: 18px 14px 40px; }
+h1,h2,h3,p { margin: 0; }
+.subtitle { color: var(--muted); font-size: 14px; }
+.navbar { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
+.card { background: var(--card); border: 1px solid var(--line); padding: 14px; }
+.balance-card { text-align: center; }
+.balance { font-size: 46px; font-weight: 700; margin-top: 8px; }
+.row { display: flex; gap: 10px; align-items: center; }
+.between { justify-content: space-between; }
+.stack, .grid, .content { display: grid; gap: 10px; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+input, select, button { font: inherit; }
+input, select { width: 100%; border: 1px solid var(--line); background: var(--card); color: var(--text); padding: 8px 10px; border-radius: 8px; }
+button { border: 1px solid var(--line); background: var(--card); color: var(--text); padding: 8px 11px; cursor: pointer; border-radius: 10px; }
+.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+.danger { background: #ffeaea; color: #b53333; border-color: #efc7c7; }
+.ok { color: var(--ok); }
+.err { color: var(--err); }
+.tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+.tabs { margin-bottom: 18px; }
+.tabs button.active { border-color: var(--primary); color: var(--primary); }
+.filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+.action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-width: 520px; }
+.action-row button { padding: 12px 14px; font-weight: 600; }
+.icon-btn { border-radius: 10px; padding: 8px 10px; }
+.menu-wrap { display: flex; gap: 8px; align-items: center; }
+.tx-row, .member-row { display: flex; justify-content: space-between; gap: 10px; border: 1px solid var(--line); padding: 9px; }
+.metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.metric { border: 1px solid var(--line); padding: 9px; display: grid; gap: 4px; }
+.bar-row { display: grid; gap: 5px; }
+.bar-top { display: flex; justify-content: space-between; }
+.bar { background: color-mix(in oklab, var(--line), transparent 30%); height: 8px; }
+.bar span { display:block; height:100%; background: linear-gradient(90deg,var(--primary),#9286ff); }
+.goal-bar { height: 10px; background: color-mix(in oklab, var(--line), transparent 30%); margin: 10px 0; }
+.goal-bar span { display:block; height:100%; background: linear-gradient(90deg,var(--primary),#9286ff); }
+.tag { border: 1px solid var(--line); padding: 4px 8px; font-size: 13px; color: var(--muted); }
+.menu-wrap { position: relative; }
+.menu-dropdown { position: absolute; right: 0; top: 105%; display: grid; width: 240px; border: 1px solid var(--line); background: var(--card); z-index: 20; }
+.menu-dropdown button { text-align: left; border: 0; border-bottom: 1px solid var(--line); }
+.menu-dropdown button:last-child { border-bottom: 0; }
+.switcher { display: inline-flex; border: 1px solid var(--line); }
+.switcher button.active { background: color-mix(in oklab, var(--primary), white 80%); }
+.modal-backdrop { position: fixed; inset: 0; background: rgba(10, 12, 21, 0.55); display: grid; place-items: center; z-index: 50; }
+.modal { width: min(520px, 92vw); background: var(--card); border: 1px solid var(--line); padding: 14px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.toast-stack { position: fixed; right: 12px; bottom: 12px; display: grid; gap: 8px; z-index: 70; }
+.toast { min-width: 260px; max-width: 360px; padding: 10px 12px; border: 1px solid var(--line); background: var(--card); box-shadow: 0 8px 18px rgba(14,17,34,0.2); }
+.toast.ok { border-color: #b7dfc4; color: #1e6f42; }
+.toast.error { border-color: #efbcbc; color: #962929; }
+
+@media (max-width: 860px) { .two-col, .metrics, .action-row { grid-template-columns: 1fr; } .balance { font-size: 36px; } }

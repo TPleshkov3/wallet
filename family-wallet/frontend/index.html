@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Семейный кошелек</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+</head>
+<body>
+  <div id="app" class="app" :data-theme="theme">
+    <header class="navbar">
+      <div>
+        <h1>Семейный кошелек</h1>
+        <p class="subtitle">Учет доходов и расходов семьи</p>
+      </div>
+      <div v-if="token" class="menu-wrap">
+        <button class="icon-btn" @click="toggleTheme" :title="theme==='dark' ? 'Светлая тема' : 'Тёмная тема'">
+          {{ theme==='dark' ? '☀️' : '🌙' }}
+        </button>
+        <button class="menu-btn" @click="menuOpen=!menuOpen">Меню ▾</button>
+        <div v-if="menuOpen" class="menu-dropdown">
+          <button v-if="membership && membership.role==='owner'" @click="openGoalModalFromMenu">Цель накопления</button>
+          <button @click="setView('family')">Моя семья</button>
+          <button @click="setView('regular')">Регулярные расходы</button>
+          <button @click="setView('journal')">Журнал</button>
+          <button v-if="membership && membership.role==='owner'" @click="copyInvite(ownerInviteCode)">Копировать код приглашения</button>
+          <button @click="logout">Выйти</button>
+        </div>
+      </div>
+    </header>
+
+    <section v-if="!token" class="card auth-card">
+      <div class="switcher">
+        <button :class="authTab==='login' ? 'active' : ''" @click="authTab='login'">Вход</button>
+        <button :class="authTab==='register' ? 'active' : ''" @click="authTab='register'">Регистрация</button>
+      </div>
+      <div v-if="authTab==='login'" class="grid">
+        <label>Email<input v-model="loginForm.email" type="email" /></label>
+        <label>Пароль<input v-model="loginForm.password" type="password" /></label>
+        <button class="primary" @click="login">Войти</button>
+      </div>
+      <div v-else class="grid">
+        <label>Имя<input v-model="registerForm.name" /></label>
+        <label>Email<input v-model="registerForm.email" type="email" /></label>
+        <label>Пароль<input v-model="registerForm.password" type="password" /></label>
+        <button class="primary" @click="register">Зарегистрироваться</button>
+      </div>
+    </section>
+
+    <section v-else-if="!membership" class="two-col">
+      <article class="card">
+        <h2>Создать семью</h2>
+        <div class="grid">
+          <label>Название семьи<input v-model="familyName" /></label>
+          <button class="primary" @click="createFamily">Создать</button>
+        </div>
+      </article>
+      <article class="card">
+        <h2>Войти в семью</h2>
+        <div class="grid">
+          <label>Код приглашения<input v-model="joinCode" maxlength="6" /></label>
+          <button class="primary" @click="joinFamily">Вступить</button>
+        </div>
+      </article>
+    </section>
+
+    <section v-else class="content">
+      <article class="card balance-card">
+        <div class="row between">
+          <p class="subtitle">{{ membership.family_name }}</p>
+          <select v-model="selectedAccount" @change="refreshMainData">
+            <option v-for="acc in accounts" :key="acc.id" :value="acc.name">{{ acc.name }}</option>
+          </select>
+        </div>
+        <p :class="['balance', balance >= 0 ? 'ok' : 'err']">{{ signedMoney(balance) }} ₽</p>
+      </article>
+
+      <article class="card" v-if="goal">
+        <div class="row between">
+          <div>
+            <h3>{{ goal.title }}</h3>
+            <p class="subtitle">Цель: {{ money(goal.target_amount) }} ₽ · до {{ monthLabel(goal.deadline_month) }} {{ goal.deadline_year }}</p>
+          </div>
+          <button v-if="membership.role==='owner'" @click="openGoalModal">Изменить цель</button>
+        </div>
+        <div class="goal-bar"><span :style="{width: goal.progress_percent + '%'}"></span></div>
+        <p class="subtitle" v-if="goal.achieved">Цель достигнута!</p>
+        <p class="subtitle" v-else>Осталось накопить: {{ money(goal.remaining_amount) }} ₽</p>
+      </article>
+      <article class="card" v-else-if="membership.role==='owner'">
+        <h3>Цель накопления</h3>
+        <button class="primary" @click="openGoalModal">Создать цель</button>
+      </article>
+
+      <article class="card">
+        <nav class="tabs">
+          <button :class="view==='budget' ? 'active' : ''" @click="setView('budget')">Бюджет</button>
+          <button :class="view==='history' ? 'active' : ''" @click="setView('history')">История</button>
+          <button :class="view==='report' ? 'active' : ''" @click="setView('report')">Отчет</button>
+        </nav>
+
+        <div v-if="view==='budget'" class="stack">
+          <div class="action-row">
+            <button class="primary" @click="openAddModal('income')">Приход</button>
+            <button class="danger" @click="openAddModal('expense')">Расход</button>
+          </div>
+        </div>
+
+        <div v-if="view==='history'" class="stack">
+          <div class="filters">
+            <label>С даты<input type="date" v-model="historyFilters.dateFrom" /></label>
+            <label>По дату<input type="date" v-model="historyFilters.dateTo" /></label>
+            <label>Вид операции
+              <select v-model="historyFilters.category"><option value="">Все</option><option v-for="c in categories" :key="c">{{ c }}</option></select>
+            </label>
+            <label>Тип
+              <select v-model="historyFilters.type"><option value="">Все</option><option value="income">Приход</option><option value="expense">Расход</option></select>
+            </label>
+          </div>
+          <article v-for="tx in filteredTransactions" :key="tx.id" class="tx-row">
+            <div>
+              <p><b :class="tx.type==='income' ? 'ok':'err'">{{ tx.type==='income' ? '+' : '-' }}{{ money(tx.amount) }} ₽</b> · {{ tx.category }} <span v-if="tx.is_recurring_generated">🔄</span></p>
+              <p class="subtitle">{{ tx.user_name }} · {{ prettyDate(tx.date) }} · {{ tx.description || 'Без описания' }}</p>
+            </div>
+            <button class="danger" @click="openDeleteModal(tx)">Удалить</button>
+          </article>
+          <p v-if="!filteredTransactions.length" class="subtitle">Нет записей</p>
+        </div>
+
+        <div v-if="view==='report'" class="stack">
+          <div class="filters">
+            <label>Год<select v-model.number="reportFilters.year"><option v-for="y in years" :key="y" :value="y">{{ y }}</option></select></label>
+            <label>Месяц<select v-model.number="reportFilters.month"><option v-for="m in monthOptions" :key="m.value" :value="m.value">{{ m.label }}</option></select></label>
+            <label>С даты<input type="date" v-model="reportFilters.dateFrom" /></label>
+            <label>По дату<input type="date" v-model="reportFilters.dateTo" /></label>
+            <label>Вид операции<select v-model="reportFilters.category"><option value="">Все</option><option v-for="c in categories" :key="c">{{ c }}</option></select></label>
+            <label>Тип<select v-model="reportFilters.type"><option value="">Все</option><option value="income">Приход</option><option value="expense">Расход</option></select></label>
+            <button class="primary" @click="loadReport">Применить</button>
+          </div>
+          <div class="metrics">
+            <div class="metric"><span>Доходы</span><b class="ok">{{ money(report.total_income) }} ₽</b></div>
+            <div class="metric"><span>Расходы</span><b class="err">{{ money(report.total_expense) }} ₽</b></div>
+            <div class="metric"><span>Баланс</span><b :class="report.balance>=0 ? 'ok':'err'">{{ signedMoney(report.balance) }} ₽</b></div>
+          </div>
+          <h3>Расходы по категориям</h3>
+          <div v-for="row in categoryRows" :key="row.name" class="bar-row"><div class="bar-top"><span>{{ row.name }}</span><b>{{ money(row.value) }} ₽</b></div><div class="bar"><span :style="{width: row.percent + '%'}"></span></div></div>
+          <h3>Кто сколько потратил</h3>
+          <div v-for="row in userRows" :key="row.name" class="bar-row"><div class="bar-top"><span>{{ row.name }}</span><b>{{ money(row.value) }} ₽</b></div><div class="bar"><span :style="{width: row.percent + '%'}"></span></div></div>
+        </div>
+
+        <div v-if="view==='family'" class="stack">
+          <div class="row between"><h3>Участники семьи</h3><span class="subtitle">Код: {{ ownerInviteCode || 'только для владельца' }}</span></div>
+          <div class="grid" v-if="canManageAccounts">
+            <label>Новый счет<input v-model="newAccountName" placeholder="Например: Карта Сбер" /></label>
+            <button @click="createAccount">Создать счет</button>
+          </div>
+          <article v-for="m in familyMembers" :key="m.user_id" class="member-row"><div><b>{{ m.user_name }}</b><p class="subtitle">{{ m.user_email }}</p></div><span class="tag">{{ m.role === 'owner' ? 'Владелец' : 'Участник' }}</span></article>
+          <div class="stack" v-if="membership.role==='owner'">
+            <h3>Права участников</h3>
+            <article v-for="m in editableMembers" :key="'perm-'+m.user_id" class="tx-row">
+              <div><b>{{ m.user_name }}</b></div>
+              <div class="row">
+                <label class="row"><input type="checkbox" :checked="m.can_manage_accounts" @change="updatePermission(m,'can_manage_accounts',$event.target.checked)" /> счета</label>
+                <label class="row"><input type="checkbox" :checked="m.can_delete_any_transactions" @change="updatePermission(m,'can_delete_any_transactions',$event.target.checked)" /> удаление чужих</label>
+              </div>
+            </article>
+          </div>
+        </div>
+
+        <div v-if="view==='regular'" class="stack">
+          <h3>Регулярные платежи</h3>
+          <article v-for="r in recurringPayments" :key="r.id" class="tx-row"><div><p><b>{{ money(r.amount) }} ₽</b> · {{ r.category }}</p><p class="subtitle">Каждый месяц {{ r.day_of_month }} числа · {{ r.description || 'Без описания' }}</p></div><div class="row"><button @click="openEditRecurringModal(r)">Изменить</button><button class="danger" @click="deleteRecurring(r.id)">Удалить</button></div></article>
+          <p v-if="!recurringPayments.length" class="subtitle">Пусто</p>
+        </div>
+
+        <div v-if="view==='journal'" class="stack">
+          <h3>Журнал изменений</h3>
+          <article v-for="l in auditLogs" :key="l.id" class="tx-row"><div><p><b>{{ l.actor_name }}</b> — {{ l.details }}</p><p class="subtitle">{{ prettyDateTime(l.created_at) }}</p></div></article>
+          <p v-if="!auditLogs.length" class="subtitle">Пусто</p>
+        </div>
+      </article>
+    </section>
+
+    <div v-if="addModal" class="modal-backdrop" @click.self="closeAddModal">
+      <div class="modal">
+        <h3>{{ modalType==='income' ? 'Добавить приход' : 'Добавить расход' }}</h3>
+        <div class="grid">
+          <label>Сумма<input type="number" min="0.01" step="0.01" v-model.number="txForm.amount" /></label>
+          <label>Категория<select v-model="txForm.category"><option v-for="c in categories" :key="c">{{ c }}</option></select></label>
+          <label>Описание<input v-model="txForm.description" /></label>
+          <label v-if="modalType==='expense'" class="row"><input type="checkbox" v-model="txForm.recurring_monthly" /> Повторять ежемесячно</label>
+          <label v-if="modalType==='expense' && txForm.recurring_monthly">День месяца<input type="number" min="1" max="28" v-model.number="txForm.recurring_day" /></label>
+          <div class="modal-actions"><button @click="closeAddModal">Отмена</button><button class="primary" @click="submitAdd">Сохранить</button></div>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="goalModal" class="modal-backdrop" @click.self="goalModal=false">
+      <div class="modal">
+        <h3>Цель накопления</h3>
+        <div class="grid">
+          <label>Название<input v-model="goalForm.title" /></label>
+          <label>Сумма<input type="number" min="1" v-model.number="goalForm.target_amount" /></label>
+          <label>Год<input type="number" min="2024" v-model.number="goalForm.deadline_year" /></label>
+          <label>Месяц<select v-model.number="goalForm.deadline_month"><option v-for="m in monthOptions" :key="m.value" :value="m.value">{{ m.label }}</option></select></label>
+          <label>Счет<select v-model="goalForm.account_type"><option value="main">Основные средства</option><option value="savings">Накопления</option></select></label>
+          <div class="modal-actions"><button @click="goalModal=false">Отмена</button><button class="primary" @click="saveGoal">Сохранить</button></div>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="deleteModal" class="modal-backdrop" @click.self="deleteModal=false"><div class="modal"><h3>Удалить операцию?</h3><div class="modal-actions"><button @click="deleteModal=false">Отмена</button><button class="danger" @click="submitDelete">Удалить</button></div></div></div>
+
+    <div v-if="recurringEditModal" class="modal-backdrop" @click.self="closeEditRecurringModal">
+      <div class="modal">
+        <h3>Изменить регулярный платеж</h3>
+        <div class="grid">
+          <label>Сумма<input type="number" min="0.01" step="0.01" v-model.number="recurringForm.amount" /></label>
+          <label>Категория<select v-model="recurringForm.category"><option v-for="c in categories" :key="c">{{ c }}</option></select></label>
+          <label>Описание<input v-model="recurringForm.description" /></label>
+          <label>Счет<select v-model="recurringForm.account_type"><option value="main">Основные средства</option><option value="savings">Накопления</option></select></label>
+          <label>День месяца<input type="number" min="1" max="28" v-model.number="recurringForm.day_of_month" /></label>
+          <div class="modal-actions"><button @click="closeEditRecurringModal">Отмена</button><button class="primary" @click="submitEditRecurring">Сохранить</button></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast-stack"><div v-for="t in toasts" :key="t.id" :class="['toast', t.type]">{{ t.text }}</div></div>
+  </div>
+  <script src="./app.js"></script>
+</body>
+</html>
