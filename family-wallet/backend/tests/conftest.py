@@ -12,8 +12,8 @@ sys.path.append(str(BASE_DIR))
 
 os.environ["TESTING"] = "1"
 
-from app.database import Base, get_db  # noqa: E402
-from app.main import app  # noqa: E402
+from app.database import Base, get_db  
+from app.main import app  
 
 TEST_DB_URL = "sqlite:///./test_family_wallet.db"
 engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})

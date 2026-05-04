@@ -127,7 +127,7 @@ def create_transaction(
 @router.get("", response_model=list[TransactionResponse])
 def get_transactions(
     family_id: int = Query(...),
-    account_type: str | None = Query(None, pattern="^(main|savings)$"),
+    account_type: str | None = Query(None, ),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
